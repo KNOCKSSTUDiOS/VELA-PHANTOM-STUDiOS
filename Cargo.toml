@@ -1,11 +1,19 @@
+[workspace]
+members = [
+    "prompt_engine",
+    "timeline_engine",
+    "render_engine",
+]
+resolver = "2"
+
 [package]
 name = "orchestrator"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-eframe = "0.28"
-egui = "0.28"
-timeline_engine = { path = "./timeline_engine" }
-render_engine = { path = "./render_engine" }
-prompt_engine = { path = "./prompt_engine" }
+prompt_engine = { path = "prompt_engine" }
+timeline_engine = { path = "timeline_engine" }
+render_engine = { path = "render_engine" }
+crossterm = "0.28"
+ratatui = "0.29"
