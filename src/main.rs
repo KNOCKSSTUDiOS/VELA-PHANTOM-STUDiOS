@@ -1,155 +1,215 @@
-// ============================================================================
-// VELA PHANTOM STUDiO — MASTER ORCHESTRATOR & UI BINDING PIPELINE
-// ============================================================================
-
 use eframe::egui;
+use prompt_engine::PromptCore;
+use timeline_engine::TimelineCore;
+use render_engine::RenderCore;
 
-pub struct VelaPhantomStudioApp {
-    pub timeline_state: timeline_engine::TimelineState,
-    pub render_pipeline: render_engine::RenderPipeline,
-    pub prompt_core: prompt_engine::PromptCore,
-    pub prompt_input: String,
-    pub is_rendering: bool,
-    pub playback_speed: f32,
+#[derive(Default)]
+struct VelaPhantomStudioApp {
+    prompt_core: PromptCore,
+    timeline_core: TimelineCore,
+    render_core: RenderCore,
+    input_text: String,
+    selected_tab: StudioTab,
+    selected_palette: ColorPalette,
 }
 
-impl Default for VelaPhantomStudioApp {
+#[derive(PartialEq, Clone, Copy)]
+enum StudioTab {
+    Dashboard,
+    MediaGallery,
+    TimelineScrubber,
+    RenderStudio,
+    AudioSpatial,
+}
+
+impl Default for StudioTab {
     fn default() -> Self {
+        StudioTab::Dashboard
+    }
+}
+
+#[derive(PartialEq, Clone, Copy)]
+enum ColorPalette {
+    FresnoPeach,
+    FlamingoPink,
+    BioBlue,
+    PearlEssentWhite,
+    Gold,
+}
+
+impl Default for ColorPalette {
+    fn default() -> Self {
+        ColorPalette::PearlEssentWhite
+    }
+}
+
+impl VelaPhantomStudioApp {
+    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         Self {
-            timeline_state: timeline_engine::TimelineState::new(),
-            render_pipeline: render_engine::RenderPipeline::default(),
-            prompt_core: prompt_engine::PromptCore::load_local(),
-            prompt_input: String::new(),
-            is_rendering: false,
-            playback_speed: 1.0,
+            prompt_core: PromptCore::load_local(),
+            timeline_core: TimelineCore::default(),
+            render_core: RenderCore::default(),
+            ..Default::default()
         }
+    }
+
+    fn apply_palette(&self, ctx: &egui::Context) {
+        let mut style = (*ctx.style()).clone();
+        
+        let (bg_color, accent_color, text_color) = match self.selected_palette {
+            ColorPalette::FresnoPeach => (
+                egui::Color32::from_rgb(25, 12, 10),
+                egui::Color32::from_rgb(255, 138, 101),
+                egui::Color32::from_rgb(255, 224, 213),
+            ),
+            ColorPalette::FlamingoPink => (
+                egui::Color32::from_rgb(20, 8, 15),
+                egui::Color32::from_rgb(255, 105, 180),
+                egui::Color32::from_rgb(255, 215, 235),
+            ),
+            ColorPalette::BioBlue => (
+                egui::Color32::from_rgb(5, 15, 25),
+                egui::Color32::from_rgb(0, 229, 255),
+                egui::Color32::from_rgb(200, 245, 255),
+            ),
+            ColorPalette::PearlEssentWhite => (
+                egui::Color32::from_rgb(12, 12, 14),
+                egui::Color32::from_rgb(240, 240, 245),
+                egui::Color32::from_rgb(220, 220, 230),
+            ),
+            ColorPalette::Gold => (
+                egui::Color32::from_rgb(15, 12, 5),
+                egui::Color32::from_rgb(255, 215, 0),
+                egui::Color32::from_rgb(255, 248, 220),
+            ),
+        };
+
+        style.visuals.dark_mode = true;
+        style.visuals.window_fill = bg_color;
+        style.visuals.panel_fill = bg_color;
+        style.visuals.selection.bg_fill = accent_color;
+        style.visuals.selection.stroke = egui::Stroke::new(1.0, text_color);
+        
+        ctx.set_style(style);
     }
 }
 
 impl eframe::App for VelaPhantomStudioApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Global Dark Atmospheric Styling (VELA PHANTOM Aesthetic)
-        let mut style = (*ctx.style()).clone();
-        style.visuals.dark_mode = true;
-        style.visuals.window_fill = egui::Color32::from_rgb(15, 15, 20);
-        style.visuals.panel_fill = egui::Color32::from_rgb(22, 22, 30);
-        ctx.set_style(style);
+        self.apply_palette(ctx);
 
-        // Top Command & Menu Bar
-        egui::TopBottomPanel::top("top_menu_bar").show(ctx, |ui| {
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("⚡ VELA PHANTOM STUDiO");
                 ui.separator();
-                if ui.button("📁 New Project").clicked() {}
-                if ui.button("💾 Save State").clicked() {}
-                if ui.button("🚀 Seal App").clicked() {
-                    self.is_rendering = true;
-                }
-            });
-        });
-
-        // Bottom AI Prompt & Control Box
-        egui::TopBottomPanel::bottom("ai_prompt_panel").show(ctx, |ui| {
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                ui.label("🤖 AI Prompt:");
-                let prompt_response = ui.add(
-                    egui::TextEdit::singleline(&mut self.prompt_input)
-                        .hint_text("Enter generative prompt or query engine parameters...")
-                        .desired_width(ui.available_width() - 100.0)
-                );
+                if ui.button("Dashboard").clicked() { self.selected_tab = StudioTab::Dashboard; }
+                if ui.button("Media Gallery").clicked() { self.selected_tab = StudioTab::MediaGallery; }
+                if ui.button("Timeline").clicked() { self.selected_tab = StudioTab::TimelineScrubber; }
+                if ui.button("Render 2D/3D").clicked() { self.selected_tab = StudioTab::RenderStudio; }
+                if ui.button("Spatial Sound").clicked() { self.selected_tab = StudioTab::AudioSpatial; }
                 
-                if ui.button("Generate").clicked() || (prompt_response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter))) {
-                    if !self.prompt_input.is_empty() {
-                        self.prompt_core.submit_prompt(&self.prompt_input);
-                        self.prompt_input.clear();
-                    }
-                }
+                ui.separator();
+                ui.label("Palette:");
+                if ui.selectable_label(self.selected_palette == ColorPalette::FresnoPeach, "Fresno Peach").clicked() { self.selected_palette = ColorPalette::FresnoPeach; }
+                if ui.selectable_label(self.selected_palette == ColorPalette::FlamingoPink, "Flamingo Pink").clicked() { self.selected_palette = ColorPalette::FlamingoPink; }
+                if ui.selectable_label(self.selected_palette == ColorPalette::BioBlue, "Bio Blue").clicked() { self.selected_palette = ColorPalette::BioBlue; }
+                if ui.selectable_label(self.selected_palette == ColorPalette::PearlEssentWhite, "Pearl White").clicked() { self.selected_palette = ColorPalette::PearlEssentWhite; }
+                if ui.selectable_label(self.selected_palette == ColorPalette::Gold, "Gold").clicked() { self.selected_palette = ColorPalette::Gold; }
             });
-            ui.add_space(4.0);
         });
 
-        // Central Timeline & Rendering Workspace
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.columns(2, |columns| {
-                // Left Column: Viewport / Render Preview
-                columns[0].vertical(|ui| {
-                    ui.group(|ui| {
-                        ui.set_min_size(egui::vec2(ui.available_width(), 350.0));
-                        ui.centered_and_justified(|ui| {
-                            if self.is_rendering {
-                                ui.spinner();
-                                ui.label("Rendering Frame Buffer...");
-                            } else {
-                                ui.label("📺 Render Viewport [Active]");
-                            }
-                        });
-                    });
-
-                    ui.add_space(10.0);
-                    ui.heading("Engine Status");
-                    ui.label("• timeline_engine: Synchronized");
-                    ui.label("• render_engine: Locked");
-                    ui.label("• prompt_engine: Ready");
-                });
-
-                // Right Column: AI Log & Output Feed
-                columns[1].vertical(|ui| {
-                    ui.heading("AI Generation Feed");
-                    egio_scroll(ui, |ui| {
-                        for entry in self.prompt_core.get_history() {
-                            ui.label(format!("> {}", entry));
+            match self.selected_tab {
+                StudioTab::Dashboard => {
+                    ui.heading("Sovereignty & Prompt Control Matrix");
+                    ui.separator();
+                    
+                    ui.horizontal(|ui| {
+                        ui.label("Prompt Input:");
+                        ui.text_edit_singleline(&mut self.input_text);
+                        if ui.button("Submit").clicked() && !self.input_text.is_empty() {
+                            let prompt = self.input_text.clone();
+                            self.prompt_core.submit_prompt(&prompt);
+                            self.input_text.clear();
                         }
                     });
-                });
-            });
 
-            ui.add_space(20.0);
-            ui.separator();
-            ui.add_space(10.0);
-
-            // Timeline Scrubbing & Playback Controls
-            ui.horizontal(|ui| {
-                if ui.button("⏮").clicked() { self.timeline_state.seek_start(); }
-                if ui.button(if self.timeline_state.is_playing() { "⏸" } else { "▶" }).clicked() {
-                    self.timeline_state.toggle_playback();
+                    ui.add_space(10.5);
+                    ui.label("Execution Feed & Lore History:");
+                    egui::ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
+                        for line in self.prompt_core.get_history().iter().rev() {
+                            ui.label(line);
+                        }
+                    });
                 }
-                if ui.button("⏭").clicked() { self.timeline_state.seek_end(); }
-
-                ui.label(format!("Frame: {} / {}", self.timeline_state.current_frame(), self.timeline_state.total_frames()));
-                
-                let mut current_time = self.timeline_state.current_frame() as f32;
-                let slider = ui.add(egui::Slider::new(&mut current_time, 0.0..=1000.0).text("Timeline Scrub"));
-                if slider.changed() {
-                    self.timeline_state.seek_frame(current_time as usize);
+                StudioTab::MediaGallery => {
+                    ui.heading("Media Gallery (PNG, JPG, MP3, MP4, 2D / 3D Asset Previews)");
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        ui.group(|ui| {
+                            ui.set_min_size(egui::vec2(180.0, 120.0));
+                            ui.label("📁 [3D MESH ASSET 01]");
+                            ui.label("Type: .obj / .fbx (Polygon Matrix)");
+                            ui.label("Status: Indexed & Ready");
+                        });
+                        ui.group(|ui| {
+                            ui.set_min_size(egui::vec2(180.0, 120.0));
+                            ui.label("📁 [2D RENDER PREVIEW]");
+                            ui.label("Type: .png / .jpg (High Res)");
+                            ui.label("Status: Indexed & Ready");
+                        });
+                        ui.group(|ui| {
+                            ui.set_min_size(egui::vec2(180.0, 120.0));
+                            ui.label("📁 [AUDIO STREAM]");
+                            ui.label("Type: .mp3 / .wav (Spatial)");
+                            ui.label("Status: Indexed & Ready");
+                        });
+                        ui.group(|ui| {
+                            ui.set_min_size(egui::vec2(180.0, 120.0));
+                            ui.label("📁 [VIDEO SEQUENCE]");
+                            ui.label("Type: .mp4 (4K Stream)");
+                            ui.label("Status: Indexed & Ready");
+                        });
+                    });
                 }
-            });
+                StudioTab::TimelineScrubber => {
+                    ui.heading("Multi-Track Timeline Scrubber");
+                    ui.separator();
+                    ui.label("Scrubbing frame position across tracks:");
+                    if ui.button("Step Forward Frame").clicked() {
+                        self.timeline_core.step();
+                    }
+                    ui.label(format!("Current Frame Marker: {}", self.timeline_core.get_frame()));
+                }
+                StudioTab::RenderStudio => {
+                    ui.heading("2D & 3D Render Engine");
+                    ui.separator();
+                    ui.label("Select Pipeline Mode:");
+                    if ui.button("Export 2D Vector Frame").clicked() {
+                        self.render_core.trigger_2d();
+                    }
+                    if ui.button("Compile 3D Volumetric Mesh").clicked() {
+                        self.render_core.trigger_3d();
+                    }
+                    ui.label(format!("Render Log: {}", self.render_core.get_status()));
+                }
+                StudioTab::AudioSpatial => {
+                    ui.heading("DTS & Dolby Spatial Sound Matrix");
+                    ui.separator();
+                    ui.label("Multi-channel audio telemetry locked at 24-bit 96kHz sovereign output.");
+                    if ui.button("Initialize Spatial Sound Matrix").clicked() {
+                        // Spatial audio hook trigger
+                    }
+                }
+            }
         });
-
-        // Request continuous repaint for smooth UI timeline playback
-        ctx.request_repaint();
     }
 }
 
-fn egio_scroll<F>(ui: &mut egui::Ui, add_contents: F) 
-where
-    F: FnOnce(&mut egui::Ui),
-{
-    egui::ScrollArea::vertical()
-        .max_height(200.0)
-        .auto_shrink([false; 2])
-        .show(ui, add_contents);
-}
-
 fn main() -> Result<(), eframe::Error> {
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1280.0, 720.0])
-            .with_title("VELA PHANTOM STUDiO v1.1.0"),
-        ..Default::default()
-    };
+    let options = eframe::NativeOptions::default();
     eframe::run_native(
-        "VELA PHANTOM STUDiO",
+        "Vela Phantom Studio",
         options,
         Box::new(|_cc| Ok(Box::<VelaPhantomStudioApp>::default())),
     )
