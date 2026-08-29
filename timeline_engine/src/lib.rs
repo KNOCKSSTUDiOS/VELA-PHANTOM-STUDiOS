@@ -1,14 +1,19 @@
-#[derive(Default, Clone)]
 pub struct TimelineState {
-    pub current_frame: usize,
+    frame: u64,
+}
+
+impl Default for TimelineState {
+    fn default() -> Self {
+        Self { frame: 0 }
+    }
 }
 
 impl TimelineState {
     pub fn step(&mut self) {
-        self.current_frame += 1;
+        self.frame += 1;
     }
 
-    pub fn get_frame(&self) -> usize {
-        self.current_frame
+    pub fn get_frame(&self) -> u64 {
+        self.frame
     }
 }

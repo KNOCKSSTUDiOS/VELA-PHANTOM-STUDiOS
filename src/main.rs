@@ -92,9 +92,9 @@ impl eframe::App for VelaApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.apply_theme(ctx);
 
-        // Top Navigation Bar (Full native app menu header)
+        // Top Navigation Bar
         egui::TopBottomPanel::top("top_menu_bar").show(ctx, |ui| {
-            ui.add_space(4.0);
+            ui.add_space(6.0);
             ui.horizontal(|ui| {
                 ui.heading("⚡ VELA PHANTOM STUDiO");
                 ui.separator();
@@ -126,7 +126,7 @@ impl eframe::App for VelaApp {
                     ui.label("KNOCKSSTUDiOS 🔒");
                 });
             });
-            ui.add_space(4.0);
+            ui.add_space(6.0);
         });
 
         // Bottom Status Footer
@@ -140,7 +140,7 @@ impl eframe::App for VelaApp {
             });
         });
 
-        // Central Main Workspace Panel
+        // Central Main Workspace Panel with Interactive Sub-Views
         egui::CentralPanel::default().show(ctx, |ui| {
             match self.active_menu {
                 MenuTab::Dashboard => {
@@ -150,7 +150,7 @@ impl eframe::App for VelaApp {
 
                     ui.horizontal(|ui| {
                         ui.label("Prompt Command:");
-                        let response = ui.add(egui::TextEdit::singleline(&mut self.input_text).desired_width(400.0));
+                        let response = ui.add(egui::TextEdit::singleline(&mut self.input_text).desired_width(450.0));
                         if (ui.button("Submit Prompt").clicked() || (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))) && !self.input_text.is_empty() {
                             let prompt = self.input_text.clone();
                             self.prompt_core.submit_prompt(&prompt);
@@ -159,6 +159,9 @@ impl eframe::App for VelaApp {
                     });
 
                     ui.add_space(12.0);
+                    ui.label("Try typing: quote, storyboard, bio, audio, or billing");
+                    ui.add_space(6.0);
+
                     ui.label("Execution History Log:");
                     egui::ScrollArea::vertical().max_height(350.0).show(ui, |ui| {
                         for line in self.prompt_core.get_history().iter().rev() {

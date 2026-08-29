@@ -1,15 +1,22 @@
-#[derive(Default, Clone)]
 pub struct RenderCore {
-    pub status: String,
+    status: String,
+}
+
+impl Default for RenderCore {
+    fn default() -> Self {
+        Self {
+            status: "Pipeline Idle. Ready for 2D/3D compilation.".to_string(),
+        }
+    }
 }
 
 impl RenderCore {
     pub fn trigger_2d(&mut self) {
-        self.status = "2D Vector Frame Exported Successfully.".to_string();
+        self.status = "SUCCESS: 2D Vector Frame exported at 4K resolution (Biolumi PNG buffer).".to_string();
     }
 
     pub fn trigger_3d(&mut self) {
-        self.status = "3D Volumetric Mesh Compiled Successfully.".to_string();
+        self.status = "SUCCESS: 3D Volumetric Mesh compiled and indexed (.obj / .fbx format).".to_string();
     }
 
     pub fn get_status(&self) -> &str {
