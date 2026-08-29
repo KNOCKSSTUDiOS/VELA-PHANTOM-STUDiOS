@@ -18,7 +18,7 @@ impl PromptCore {
         let response = match prompt.to_lowercase().as_str() {
             "quote" => "“In twilight's glow, where shadows play, the phantom traces every unwritten line.” — VELA PHANTOM".to_string(),
             "storyboard" => "[SCENE 01]: Atmospheric sweep across Vella Ville. Neon pulse on wet asphalt. Camera tracks left as the black candle burns.".to_string(),
-            "bio" => "VELA PHANTOM STUDiO: A dark-aesthetic cinematic and code framework engineered by KNOCKTURNALNC.".to_string(),
+            "bio" => "VELA PHANTOM STUDiO: A dark-aesthetic cinematic and code framework engineered exclusively by KNOCKSSTUDiOS.".to_string(),
             _ => format!("> Executing generator sequence for: '{}'", prompt),
         };
         self.history.push(format!("Q: {}", prompt));
