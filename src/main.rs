@@ -44,15 +44,6 @@ impl Default for ColorPalette {
 }
 
 impl VelaPhantomStudioApp {
-    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        Self {
-            prompt_core: PromptCore::load_local(),
-            timeline_core: TimelineState::default(),
-            render_core: RenderCore::default(),
-            ..Default::default()
-        }
-    }
-
     fn apply_palette(&self, ctx: &egui::Context) {
         let mut style = (*ctx.style()).clone();
         
