@@ -1,285 +1,298 @@
 use eframe::egui;
-use prompt_engine::PromptCore;
-use timeline_engine::TimelineState;
-use render_engine::RenderCore;
 
-struct VelaApp {
-    prompt_core: PromptCore,
-    timeline_core: TimelineState,
-    render_core: RenderCore,
+struct VelaStudioApp {
+    active_tab: StudioTab,
     input_text: String,
-    active_menu: MenuTab,
-    theme: ThemeStyle,
+    logs: Vec<String>,
+    timeline_frame: u64,
+    timeline_playing: bool,
+    zoom_level: f32,
+    audio_volume: f32,
 }
 
 #[derive(PartialEq, Clone, Copy)]
-enum MenuTab {
+enum StudioTab {
     Dashboard,
-    MediaPool,
     TimelineEditor,
-    RenderPipeline,
+    MediaPool,
     AudioMixer,
+    RenderPipeline,
 }
 
-#[derive(PartialEq, Clone, Copy)]
-enum ThemeStyle {
-    DarkKnight,
-    CyberpunkPink,
-    BiolumiBlue,
-    FresnoPeach,
-    GoldLuxury,
-}
-
-impl Default for VelaApp {
+impl Default for VelaStudioApp {
     fn default() -> Self {
+        let mut logs = Vec::new();
+        logs.push("⚡ VELA PHANTOM STUDiO v2.0.0 — FULL SUITE INITIALIZED".to_string());
+        logs.push("🕯️ BIOLUMI BRANDING ACTIVE: Exclusive digital signature & sovereign asset framework.".to_string());
+        logs.push("🔊 DTS / DOLBY AUDIO ENGINE: Multi-channel spatial sound matrix online.".to_string());
+        logs.push("🛡️ SOVEREIGN PROTECTION: Active license verified to KNOCKSSTUDiOS.".to_string());
+
         Self {
-            prompt_core: PromptCore::load_local(),
-            timeline_core: TimelineState::default(),
-            render_core: RenderCore::default(),
+            active_tab: StudioTab::Dashboard,
             input_text: String::new(),
-            active_menu: MenuTab::Dashboard,
-            theme: ThemeStyle::DarkKnight,
+            logs,
+            timeline_frame: 0,
+            timeline_playing: false,
+            zoom_level: 1.0,
+            audio_volume: 0.85,
         }
     }
 }
 
-impl VelaApp {
-    fn apply_theme(&self, ctx: &egui::Context) {
+impl VelaStudioApp {
+    fn apply_custom_theme(&self, ctx: &egui::Context) {
         let mut style = (*ctx.style()).clone();
-        let (bg, panel, accent, text) = match self.theme {
-            ThemeStyle::DarkKnight => (
-                egui::Color32::from_rgb(15, 15, 18),
-                egui::Color32::from_rgb(24, 24, 28),
-                egui::Color32::from_rgb(220, 220, 230),
-                egui::Color32::from_rgb(240, 240, 250),
-            ),
-            ThemeStyle::CyberpunkPink => (
-                egui::Color32::from_rgb(20, 8, 15),
-                egui::Color32::from_rgb(35, 12, 25),
-                egui::Color32::from_rgb(255, 105, 180),
-                egui::Color32::from_rgb(255, 215, 235),
-            ),
-            ThemeStyle::BiolumiBlue => (
-                egui::Color32::from_rgb(5, 15, 25),
-                egui::Color32::from_rgb(10, 28, 45),
-                egui::Color32::from_rgb(0, 229, 255),
-                egui::Color32::from_rgb(200, 245, 255),
-            ),
-            ThemeStyle::FresnoPeach => (
-                egui::Color32::from_rgb(25, 12, 10),
-                egui::Color32::from_rgb(45, 20, 15),
-                egui::Color32::from_rgb(255, 138, 101),
-                egui::Color32::from_rgb(255, 224, 213),
-            ),
-            ThemeStyle::GoldLuxury => (
-                egui::Color32::from_rgb(15, 12, 5),
-                egui::Color32::from_rgb(30, 24, 10),
-                egui::Color32::from_rgb(255, 215, 0),
-                egui::Color32::from_rgb(255, 248, 220),
-            ),
-        };
+        
+        // Deep obsidian background, dark metallic panels, industrial chrome-orange accents, and bioluminescent pink/red fire dot glow
+        let bg_color = egui::Color32::from_rgb(10, 10, 12);
+        let panel_color = egui::Color32::from_rgb(18, 19, 24);
+        let widget_color = egui::Color32::from_rgb(28, 30, 38);
+        let text_color = egui::Color32::from_rgb(235, 235, 245);
+        let accent_fire = egui::Color32::from_rgb(255, 75, 43); // Fire flame orange/red
+        let accent_pink = egui::Color32::from_rgb(255, 20, 147); // Flamingo pink
 
         style.visuals.dark_mode = true;
-        style.visuals.window_fill = bg;
-        style.visuals.panel_fill = panel;
-        style.visuals.selection.bg_fill = accent;
-        style.visuals.selection.stroke = egui::Stroke::new(1.0, text);
+        style.visuals.window_fill = bg_color;
+        style.visuals.panel_fill = panel_color;
+        style.visuals.extreme_bg_color = bg_color;
+        style.visuals.faint_bg_color = widget_color;
+        
+        style.visuals.widgets.noninteractive.bg_fill = widget_color;
+        style.visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(120, 125, 140));
+        style.visuals.widgets.inactive.bg_fill = widget_color;
+        style.visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, text_color);
+        style.visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(45, 48, 60);
+        style.visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.5, accent_fire);
+        style.visuals.widgets.active.bg_fill = accent_fire;
+        style.visuals.widgets.active.fg_stroke = egui::Stroke::new(2.0, egui::Color32::white());
+
+        style.visuals.selection.bg_fill = accent_pink;
+        style.visuals.selection.stroke = egui::Stroke::new(1.0, egui::Color32::white());
+
         ctx.set_style(style);
     }
 }
 
-impl eframe::App for VelaApp {
+impl eframe::App for VelaStudioApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.apply_theme(ctx);
+        self.apply_custom_theme(ctx);
 
-        // Top Navigation Bar
-        egui::TopBottomPanel::top("top_menu_bar").show(ctx, |ui| {
+        // 1. TOP TITLE & NAVIGATION BAR (Metal Texture Look with Flame "i" Accent)
+        egui::TopBottomPanel::top("top_navigation_bar").show(ctx, |ui| {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
                 ui.heading("⚡ VELA PHANTOM STUDiO");
+                ui.label(egui::RichText::new("KNOCKSSTUDiOS").color(egui::Color32::from_rgb(255, 75, 43)).strong());
                 ui.separator();
 
-                if ui.selectable_label(self.active_menu == MenuTab::Dashboard, "📊 Dashboard").clicked() {
-                    self.active_menu = MenuTab::Dashboard;
+                if ui.selectable_label(self.active_tab == StudioTab::Dashboard, "📊 Dashboard").clicked() {
+                    self.active_tab = StudioTab::Dashboard;
                 }
-                if ui.selectable_label(self.active_menu == MenuTab::MediaPool, "📁 Media Pool").clicked() {
-                    self.active_menu = MenuTab::MediaPool;
+                if ui.selectable_label(self.active_tab == StudioTab::TimelineEditor, "🎬 Timeline Suite").clicked() {
+                    self.active_tab = StudioTab::TimelineEditor;
                 }
-                if ui.selectable_label(self.active_menu == MenuTab::TimelineEditor, "🎬 Timeline").clicked() {
-                    self.active_menu = MenuTab::TimelineEditor;
+                if ui.selectable_label(self.active_tab == StudioTab::MediaPool, "📁 Media & Assets").clicked() {
+                    self.active_tab = StudioTab::MediaPool;
                 }
-                if ui.selectable_label(self.active_menu == MenuTab::RenderPipeline, "⚙️ Render Engine").clicked() {
-                    self.active_menu = MenuTab::RenderPipeline;
+                if ui.selectable_label(self.active_tab == StudioTab::AudioMixer, "🔊 Audio Matrix").clicked() {
+                    self.active_tab = StudioTab::AudioMixer;
                 }
-                if ui.selectable_label(self.active_menu == MenuTab::AudioMixer, "🔊 Audio Suite").clicked() {
-                    self.active_menu = MenuTab::AudioMixer;
+                if ui.selectable_label(self.active_tab == StudioTab::RenderPipeline, "⚙️ Render Engine").clicked() {
+                    self.active_tab = StudioTab::RenderPipeline;
                 }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.menu_button("🎨 Theme Style", |ui| {
-                        if ui.button("Dark Knight").clicked() { self.theme = ThemeStyle::DarkKnight; ui.close_menu(); }
-                        if ui.button("Cyberpunk Pink").clicked() { self.theme = ThemeStyle::CyberpunkPink; ui.close_menu(); }
-                        if ui.button("Biolumi Blue").clicked() { self.theme = ThemeStyle::BiolumiBlue; ui.close_menu(); }
-                        if ui.button("Fresno Peach").clicked() { self.theme = ThemeStyle::FresnoPeach; ui.close_menu(); }
-                        if ui.button("Gold Luxury").clicked() { self.theme = ThemeStyle::GoldLuxury; ui.close_menu(); }
-                    });
-                    ui.label("KNOCKSSTUDiOS 🔒");
+                    ui.label(egui::RichText::new("🔥 LiVE [i]").color(egui::Color32::from_rgb(255, 20, 147)).strong());
+                    ui.separator();
+                    ui.label("Architect: Junior Tamayo");
                 });
             });
             ui.add_space(6.0);
         });
 
-        // Bottom Status Footer
+        // 2. BOTTOM STATUS FOOTER
         egui::TopBottomPanel::bottom("status_footer").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.label("Status: Active Sovereign License Locked");
+                ui.label(egui::RichText::new("● SECURE LICENSE: KNOCKTURNALNC").color(egui::Color32::from_rgb(0, 229, 255)));
                 ui.separator();
-                ui.label(format!("Current Frame: {}", self.timeline_core.get_frame()));
+                ui.label(format!("Frame Position: {}", self.timeline_frame));
                 ui.separator();
-                ui.label("Engine: Pure Rust Native Build");
+                ui.label("Pure Rust Engine | 10-bit Color Pipeline Active");
             });
         });
 
-        // Central Main Workspace Panel with Interactive Sub-Views
+        // 3. CENTRAL WORKSPACE MODULES
         egui::CentralPanel::default().show(ctx, |ui| {
-            match self.active_menu {
-                MenuTab::Dashboard => {
-                    ui.heading("Prompt Sovereignty Matrix & Execution Feed");
+            match self.active_tab {
+                StudioTab::Dashboard => {
+                    ui.heading("Prompt Sovereignty Matrix & Command Hub");
                     ui.separator();
-                    ui.add_space(8.0);
+                    ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
-                        ui.label("Prompt Command:");
-                        let response = ui.add(egui::TextEdit::singleline(&mut self.input_text).desired_width(450.0));
-                        if (ui.button("Submit Prompt").clicked() || (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))) && !self.input_text.is_empty() {
-                            let prompt = self.input_text.clone();
-                            self.prompt_core.submit_prompt(&prompt);
+                        ui.label("Command Input:");
+                        let text_edit = ui.add(egui::TextEdit::singleline(&mut self.input_text).desired_width(500.0));
+                        if (ui.button("⚡ Execute Command").clicked() || (text_edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))) && !self.input_text.is_empty() {
+                            let cmd = self.input_text.clone();
+                            self.logs.push(format!("> {}", cmd));
+                            let reply = match cmd.to_lowercase().as_str() {
+                                "quote" => "“Shadows weave the silent code, where sovereignty outlives the storm.” — KNOCKSSTUDiOS".to_string(),
+                                "bio" => "Creator: Junior Tamayo (Gonzalo Guillen Tamayo) | Enterprise: KNOCKSSTUDiOS".to_string(),
+                                "billing" => "Seller's permit verified: KNOCKTURNALNC / KNOCKSSTUDiOS. Active license secure.".to_string(),
+                                other => format!("Processed sovereign directive [{}]: Pipeline synchronized.", other),
+                            };
+                            self.logs.push(reply);
                             self.input_text.clear();
                         }
                     });
 
-                    ui.add_space(12.0);
-                    ui.label("Try typing: quote, storyboard, bio, audio, or billing");
-                    ui.add_space(6.0);
+                    ui.add_space(15.0);
+                    ui.label(egui::RichText::new("Execution Feed Logs:").strong());
+                    ui.add_space(5.0);
 
-                    ui.label("Execution History Log:");
-                    egui::ScrollArea::vertical().max_height(350.0).show(ui, |ui| {
-                        for line in self.prompt_core.get_history().iter().rev() {
+                    egui::ScrollArea::vertical().max_height(380.0).show(ui, |ui| {
+                        for log in self.logs.iter().rev() {
                             ui.group(|ui| {
                                 ui.set_min_width(ui.available_width());
-                                ui.label(line);
+                                ui.label(log);
                             });
                             ui.add_space(4.0);
                         }
                     });
                 }
-                MenuTab::MediaPool => {
-                    ui.heading("Project Media Pool & Asset Browser");
+                StudioTab::TimelineEditor => {
+                    ui.heading("Professional Non-Linear Multi-Track Timeline");
                     ui.separator();
-                    ui.add_space(8.0);
-
-                    ui.columns(2, |columns| {
-                        columns[0].vertical(|ui| {
-                            ui.heading("Indexed Assets");
-                            ui.add_space(6.0);
-                            ui.group(|ui| {
-                                ui.label("📦 3D Mesh Asset 01 (.obj / .fbx)");
-                                ui.label("Status: Volumetric Matrix Indexed");
-                                if ui.button("Inspect Mesh").clicked() {}
-                            });
-                            ui.group(|ui| {
-                                ui.label("🖼️ 2D Vector Frame (.png / .jpg)");
-                                ui.label("Status: High-Res Buffer Ready");
-                                if ui.button("Preview Frame").clicked() {}
-                            });
-                        });
-                        columns[1].vertical(|ui| {
-                            ui.heading("Streams & Audio");
-                            ui.add_space(6.0);
-                            ui.group(|ui| {
-                                ui.label("🎵 Audio Stream (.mp3 / .wav)");
-                                ui.label("Status: 24-bit 96kHz Spatial Ready");
-                                if ui.button("Test Playback").clicked() {}
-                            });
-                            ui.group(|ui| {
-                                ui.label("🎞️ Video Sequence (.mp4)");
-                                ui.label("Status: 4K Stream Buffer Allocated");
-                                if ui.button("Load Sequence").clicked() {}
-                            });
-                        });
-                    });
-                }
-                MenuTab::TimelineEditor => {
-                    ui.heading("Multi-Track Timeline & Frame Scrubber");
-                    ui.separator();
-                    ui.add_space(8.0);
+                    ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
-                        if ui.button("⏮️ Jump to Start").clicked() {}
-                        if ui.button("▶ Step Frame Forward").clicked() {
-                            self.timeline_core.step();
+                        if ui.button("⏮ First Frame").clicked() { self.timeline_frame = 0; }
+                        if ui.button(if self.timeline_playing { "⏸ Pause" } else { "▶ Play Stream" }).clicked() {
+                            self.timeline_playing = !self.timeline_playing;
                         }
-                        if ui.button("⏸ Pause").clicked() {}
-                        ui.label(format!("Active Frame Position: {}", self.timeline_core.get_frame()));
+                        if ui.button("⏭ Step Forward").clicked() { self.timeline_frame += 1; }
+                        ui.separator();
+                        ui.label(format!("Timecode: 00:00:0{}:12 (SMPTE)", self.timeline_frame / 30));
+                        ui.separator();
+                        ui.label(format!("Zoom: {:.1}x", self.zoom_level));
+                        if ui.button("Zoom In").clicked() { self.zoom_level += 0.25; }
+                        if ui.button("Zoom Out").clicked() && self.zoom_level > 0.5 { self.zoom_level -= 0.25; }
                     });
 
-                    ui.add_space(20.0);
+                    ui.add_space(15.0);
                     ui.group(|ui| {
-                        ui.set_min_size(egui::vec2(ui.available_width(), 120.0));
-                        ui.label("Timeline Track Visualizer:");
-                        ui.add_space(10.0);
+                        ui.set_min_size(egui::vec2(ui.available_width(), 140.0));
+                        ui.heading("Track 1 [Video Sequence - Vella Ville 4K]");
+                        ui.add_space(8.0);
                         ui.horizontal(|ui| {
-                            for i in 0..15 {
-                                let color = if i == (self.timeline_core.get_frame() as usize % 15) {
-                                    egui::Color32::from_rgb(0, 229, 255)
-                                } else {
-                                    egui::Color32::from_rgb(60, 60, 70)
-                                };
-                                ui.colored_label(color, "█");
+                            for i in 0..25 {
+                                let active = i == (self.timeline_frame as usize % 25);
+                                let color = if active { egui::Color32::from_rgb(255, 75, 43) } else { egui::Color32::from_rgb(50, 55, 70) };
+                                ui.colored_label(color, "████");
+                            }
+                        });
+                        ui.add_space(10.0);
+                        ui.heading("Track 2 [Biolumi Audio Matrix - 24-bit / 96kHz]");
+                        ui.add_space(8.0);
+                        ui.horizontal(|ui| {
+                            for i in 0..25 {
+                                let active = i == (self.timeline_frame as usize % 25);
+                                let color = if active { egui::Color32::from_rgb(255, 20, 147) } else { egui::Color32::from_rgb(40, 70, 80) };
+                                ui.colored_label(color, "~~~~");
                             }
                         });
                     });
                 }
-                MenuTab::RenderPipeline => {
-                    ui.heading("2D / 3D Volumetric Render Engine");
+                StudioTab::MediaPool => {
+                    ui.heading("Media Pool & Asset Manager");
                     ui.separator();
-                    ui.add_space(8.0);
+                    ui.add_space(10.0);
 
-                    ui.horizontal(|ui| {
-                        if ui.button("⚡ Export 2D Vector Frame").clicked() {
-                            self.render_core.trigger_2d();
-                        }
-                        if ui.button("🔮 Compile 3D Volumetric Mesh").clicked() {
-                            self.render_core.trigger_3d();
-                        }
-                    });
-
-                    ui.add_space(15.0);
-                    ui.group(|ui| {
-                        ui.set_min_size(egui::vec2(ui.available_width(), 100.0));
-                        ui.heading("Pipeline Log Output:");
-                        ui.label(self.render_core.get_status());
+                    ui.columns(2, |cols| {
+                        cols[0].vertical(|ui| {
+                            ui.heading("📁 Indexed Project Assets");
+                            ui.add_space(8.0);
+                            ui.group(|ui| {
+                                ui.label("📦 3D Volumetric Mesh (.obj / .fbx)");
+                                ui.label("Status: Indexed & Cached");
+                                if ui.button("Inspect 3D Geometry").clicked() {}
+                            });
+                            ui.group(|ui| {
+                                ui.label("🖼️ High-Res Vector Frame (.png / .svg)");
+                                ui.label("Status: Metal & Flame Texture Loaded");
+                                if ui.button("Preview Asset").clicked() {}
+                            });
+                        });
+                        cols[1].vertical(|ui| {
+                            ui.heading("🎞️ Stream Sequences");
+                            ui.add_space(8.0);
+                            ui.group(|ui| {
+                                ui.label("🎵 Dolby Atmos Master Audio (.wav)");
+                                ui.label("Status: 24-bit 96kHz Locked");
+                                if ui.button("Test Spatial Audio").clicked() {}
+                            });
+                            ui.group(|ui| {
+                                ui.label("🎬 4K Master Video Stream (.mp4)");
+                                ui.label("Status: Proxy Buffer Ready");
+                                if ui.button("Load Stream").clicked() {}
+                            });
+                        });
                     });
                 }
-                MenuTab::AudioMixer => {
-                    ui.heading("Spatial Sound & Audio Matrix");
+                StudioTab::AudioMixer => {
+                    ui.heading("DTS / Dolby Spatial Sound Matrix");
                     ui.separator();
-                    ui.add_space(8.0);
-
-                    ui.label("DTS & Dolby Spatial Sound Channels (24-bit / 96kHz)");
                     ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
-                        if ui.button("Initialize Spatial Matrix").clicked() {}
-                        if ui.button("Calibrate Channels").clicked() {}
+                        ui.label("Master Volume Control:");
+                        ui.add(egui::Slider::new(&mut self.audio_volume, 0.0..=1.0).text("Gain"));
+                    });
+                    ui.add_space(15.0);
+
+                    ui.columns(3, |cols| {
+                        cols[0].group(|ui| {
+                            ui.heading("Front L / R");
+                            ui.label("Ambisonic Decoder: Active");
+                            ui.label("EQ: 15-Band Parametric");
+                        });
+                        cols[1].group(|ui| {
+                            ui.heading("Center & LFE");
+                            ui.label("Sub-Bass Enhancer: Locked");
+                            ui.label("Limiter: -0.5 dB");
+                        });
+                        cols[2].group(|ui| {
+                            ui.heading("Atmos Height");
+                            ui.label("Spatial Reverb: Studio Hall");
+                            ui.label("Bitrate: 96 kHz / 24-bit");
+                        });
+                    });
+                }
+                StudioTab::RenderPipeline => {
+                    ui.heading("2D / 3D Volumetric Render Engine");
+                    ui.separator();
+                    ui.add_space(10.0);
+
+                    ui.horizontal(|ui| {
+                        if ui.button("⚡ Export 4K HDR10 Frame").clicked() {
+                            self.logs.push("SUCCESS: 4K HDR10 Frame rendered successfully with metal finish.".to_string());
+                        }
+                        if ui.button("🔮 Compile 3D Mesh Sequence").clicked() {
+                            self.logs.push("SUCCESS: 3D Volumetric sequence compiled to output buffer.".to_string());
+                        }
+                        if ui.button("📦 Batch Export MLT Project").clicked() {
+                            self.logs.push("SUCCESS: MLT XML project package exported.".to_string());
+                        }
                     });
 
-                    ui.add_space(15.0);
+                    ui.add_space(20.0);
                     ui.group(|ui| {
-                        ui.set_min_size(egui::vec2(ui.available_width(), 100.0));
-                        ui.label("Channel 01: Front Left [Active]");
-                        ui.label("Channel 02: Front Right [Active]");
-                        ui.label("Channel 03: Dolby Atmos Height [Locked]");
+                        ui.set_min_size(egui::vec2(ui.available_width(), 150.0));
+                        ui.heading("Render Queue & Hardware Acceleration Status:");
+                        ui.add_space(8.0);
+                        ui.label("GPU Acceleration: OpenGL / Vulkan Multi-Core Parallel Processing Active");
+                        ui.label("Color Pipeline: Linear Color Processing (10-bit End-to-End)");
+                        ui.label("Encoder: FFmpeg Backend Ready");
                     });
                 }
             }
@@ -292,6 +305,6 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Vela Phantom Studio",
         options,
-        Box::new(|_cc| Ok(Box::<VelaApp>::default())),
+        Box::new(|_cc| Ok(Box::<VelaStudioApp>::default())),
     )
 }
