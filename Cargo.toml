@@ -2,21 +2,10 @@
 name = "orchestrator"
 version = "0.1.0"
 edition = "2021"
-description = "VELA PHANTOM STUDiO Orchestrator"
-license = "MIT"
 
 [dependencies]
-eframe = "0.27"
-egui = "0.27"
-
-sound_engine = { path = "../engines_rust/sound_engine" }
-scene_engine = { path = "../engines_rust/scene_engine" }
-render_engine = { path = "../engines_rust/render_engine" }
-prompt_engine = { path = "../engines_rust/prompt_engine" }
-timeline_engine = { path = "../engines_rust/timeline_engine" }
-physics_engine = { path = "../engines_rust/physics_engine" }
-camera_engine = { path = "../engines_rust/camera_engine" }
-studio_engine = { path = "../engines_rust/studio_engine" }
-
-[package.metadata.bundle]
-icon = ["assets/vela_phantom_icon.png"]
+eframe = "0.28"
+egui = "0.28"
+timeline_engine = { path = "./timeline_engine" }
+render_engine = { path = "./render_engine" }
+prompt_engine = { path = "./prompt_engine" }
