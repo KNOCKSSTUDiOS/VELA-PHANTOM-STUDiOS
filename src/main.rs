@@ -1,12 +1,12 @@
 use eframe::egui;
 use prompt_engine::PromptCore;
-use timeline_engine::TimelineCore;
+use timeline_engine::TimelineState;
 use render_engine::RenderCore;
 
 #[derive(Default)]
 struct VelaPhantomStudioApp {
     prompt_core: PromptCore,
-    timeline_core: TimelineCore,
+    timeline_core: TimelineState,
     render_core: RenderCore,
     input_text: String,
     selected_tab: StudioTab,
@@ -47,7 +47,7 @@ impl VelaPhantomStudioApp {
     fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         Self {
             prompt_core: PromptCore::load_local(),
-            timeline_core: TimelineCore::default(),
+            timeline_core: TimelineState::default(),
             render_core: RenderCore::default(),
             ..Default::default()
         }
@@ -88,7 +88,7 @@ impl VelaPhantomStudioApp {
         style.visuals.window_fill = bg_color;
         style.visuals.panel_fill = bg_color;
         style.visuals.selection.bg_fill = accent_color;
-        style.visuals.selection.stroke = egui::Stroke::new(1.0, text_color);
+        style.visuals.selection.stroke = egui::Stroke::new(1.0_f32, text_color);
         
         ctx.set_style(style);
     }

@@ -1,13 +1,18 @@
-pub struct RenderPipeline {
-    pub resolution: (u32, u32),
+#[derive(Default, Clone)]
+pub struct RenderCore {
+    pub status: String,
 }
 
-impl Default for RenderPipeline {
-    fn default() -> Self {
-        Self { resolution: (1920, 1080) }
+impl RenderCore {
+    pub fn trigger_2d(&mut self) {
+        self.status = "2D Vector Frame Exported Successfully.".to_string();
     }
-}
 
-impl RenderPipeline {
-    pub fn compose_frame(&mut self, _frame: usize) {}
+    pub fn trigger_3d(&mut self) {
+        self.status = "3D Volumetric Mesh Compiled Successfully.".to_string();
+    }
+
+    pub fn get_status(&self) -> &str {
+        &self.status
+    }
 }

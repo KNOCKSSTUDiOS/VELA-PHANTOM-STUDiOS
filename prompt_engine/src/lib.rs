@@ -1,9 +1,10 @@
+#[derive(Clone)]
 pub struct PromptCore {
     pub history: Vec<String>,
 }
 
-impl PromptCore {
-    pub fn load_local() -> Self {
+impl Default for PromptCore {
+    fn default() -> Self {
         Self { 
             history: vec![
                 "⚡ VELA PHANTOM STUDiO v2.0.0 — FULL SUITE INITIALIZED".to_string(),
@@ -13,6 +14,12 @@ impl PromptCore {
                 "🎬 TIMELINE & RENDERING DASHBOARD: Ready for instant frame export, storyboard scripting, and AI prompt execution.".to_string()
             ] 
         }
+    }
+}
+
+impl PromptCore {
+    pub fn load_local() -> Self {
+        Self::default()
     }
 
     pub fn submit_prompt(&mut self, prompt: &str) {
