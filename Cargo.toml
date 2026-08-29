@@ -15,5 +15,5 @@ edition = "2021"
 prompt_engine = { path = "prompt_engine" }
 timeline_engine = { path = "timeline_engine" }
 render_engine = { path = "render_engine" }
-crossterm = "0.28"
-ratatui = "0.29"
+eframe = "0.29"
+egui = "0.29"
