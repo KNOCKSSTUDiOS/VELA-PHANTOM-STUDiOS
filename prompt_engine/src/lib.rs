@@ -1,5 +1,3 @@
-use std::fs;
-use std::path::Path;
 
 pub struct PromptCore {
     history: Vec<String>,
