@@ -1,299 +1,307 @@
-use eframe::egui;
+use egui::{Context, RichText, SidePanel, TopBottomPanel, CentralPanel, Color32, Rounding, Stroke, Vec2};
 
-struct VelaStudioApp {
-    active_tab: StudioTab,
-    input_text: String,
-    logs: Vec<String>,
-    timeline_frame: u64,
-    timeline_playing: bool,
-    zoom_level: f32,
-    audio_volume: f32,
+struct VelaPhantomStudio {
+    active_section: StudioModule,
+    search_query: String,
+    timeline_tracks: Vec<TrackItem>,
+    clip_name: String,
+    playback_speed: f32,
+    color_temp: f32,
+    audio_gain: f32,
+    _project_title: String,
+    export_preset: String,
+    render_status: String,
 }
 
-#[derive(PartialEq, Clone, Copy)]
-enum StudioTab {
-    Dashboard,
-    TimelineEditor,
-    MediaPool,
-    AudioMixer,
-    RenderPipeline,
+#[derive(PartialEq, Clone)]
+enum StudioModule {
+    AudioMaster,
+    VideoCompositing,
+    RecognitionEngine,
+    PromptOrchestrator,
+    TimelineSequence,
+    ColorGrading,
 }
 
-impl Default for VelaStudioApp {
+struct TrackItem {
+    id: usize,
+    name: String,
+    _duration: String,
+    locked: bool,
+    muted: bool,
+    color: Color32,
+}
+
+impl Default for VelaPhantomStudio {
     fn default() -> Self {
-        let mut logs = Vec::new();
-        logs.push("⚡ VELA PHANTOM STUDiO v2.0.0 — FULL SUITE INITIALIZED".to_string());
-        logs.push("🕯️ BIOLUMI BRANDING ACTIVE: Exclusive digital signature & sovereign asset framework.".to_string());
-        logs.push("🔊 DTS / DOLBY AUDIO ENGINE: Multi-channel spatial sound matrix online.".to_string());
-        logs.push("🛡️ SOVEREIGN PROTECTION: Active license verified to KNOCKSSTUDiOS.".to_string());
-
         Self {
-            active_tab: StudioTab::Dashboard,
-            input_text: String::new(),
-            logs,
-            timeline_frame: 0,
-            timeline_playing: false,
-            zoom_level: 1.0,
-            audio_volume: 0.85,
+            active_section: StudioModule::VideoCompositing,
+            search_query: String::new(),
+            timeline_tracks: vec![
+                TrackItem {
+                    id: 1,
+                    name: "V1: Master 4K 60FPS Raw Feed [HOLLYWOOD_IMAGING]".into(),
+                    _duration: "00:04:30:00".into(),
+                    locked: false,
+                    muted: false,
+                    color: Color32::from_rgb(20, 24, 33),
+                },
+                TrackItem {
+                    id: 2,
+                    name: "V2: Fresno Peach Gradient LUT & Subtitle Overlay".into(),
+                    _duration: "00:04:30:00".into(),
+                    locked: false,
+                    muted: false,
+                    color: Color32::from_rgb(255, 138, 101),
+                },
+                TrackItem {
+                    id: 3,
+                    name: "A1: Black Candle Master Studio Audio Stem (Lossless 32-bit)".into(),
+                    _duration: "00:04:30:00".into(),
+                    locked: false,
+                    muted: false,
+                    color: Color32::from_rgb(38, 50, 56),
+                },
+            ],
+            clip_name: "vela_master_sequence_01.mp4".into(),
+            playback_speed: 1.0,
+            color_temp: 5600.0,
+            audio_gain: 0.0,
+            _project_title: "VELA-PHANTOM-STUDiOS - MONOLITHIC PIPELINE".into(),
+            export_preset: "ProRes 422 HQ / H.265 Master".into(),
+            render_status: "STANDBY - READY FOR ENCODE".into(),
         }
     }
 }
 
-impl VelaStudioApp {
-    fn apply_custom_theme(&self, ctx: &egui::Context) {
-        let mut style = (*ctx.style()).clone();
-        
-        // Deep obsidian background, dark metallic panels, industrial chrome-orange accents, and bioluminescent pink/red fire dot glow
-        let bg_color = egui::Color32::from_rgb(10, 10, 12);
-        let panel_color = egui::Color32::from_rgb(18, 19, 24);
-        let widget_color = egui::Color32::from_rgb(28, 30, 38);
-        let text_color = egui::Color32::from_rgb(235, 235, 245);
-        let accent_fire = egui::Color32::from_rgb(255, 75, 43); // Fire flame orange/red
-        let accent_pink = egui::Color32::from_rgb(255, 20, 147); // Flamingo pink
+impl VelaPhantomStudio {
+    fn pro_ribbon_button(ui: &mut egui::Ui, icon: &str, label: &str) -> egui::Response {
+        let (rect, response) = ui.allocate_at_least(Vec2::new(82.0, 52.0), egui::Sense::click());
 
-        style.visuals.dark_mode = true;
-        style.visuals.window_fill = bg_color;
-        style.visuals.panel_fill = panel_color;
-        style.visuals.extreme_bg_color = bg_color;
-        style.visuals.faint_bg_color = widget_color;
-        
-        style.visuals.widgets.noninteractive.bg_fill = widget_color;
-        style.visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(120, 125, 140));
-        style.visuals.widgets.inactive.bg_fill = widget_color;
-        style.visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, text_color);
-        style.visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(45, 48, 60);
-        style.visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.5, accent_fire);
-        style.visuals.widgets.active.bg_fill = accent_fire;
-        style.visuals.widgets.active.fg_stroke = egui::Stroke::new(2.0, egui::Color32::white());
+        let bg = if response.hovered {
+            Color32::from_rgb(45, 55, 72)
+        } else {
+            Color32::from_rgb(26, 32, 44)
+        };
 
-        style.visuals.selection.bg_fill = accent_pink;
-        style.visuals.selection.stroke = egui::Stroke::new(1.0, egui::Color32::white());
+        ui.painter().rect(
+            rect,
+            Rounding::same(3.0),
+            bg,
+            Stroke::new(1.0_f32, Color32::from_rgb(74, 85, 104)),
+        );
 
-        ctx.set_style(style);
+        let icon_galley = ui.painter().layout_no_wrap(
+            icon.to_string(),
+            egui::FontId::proportional(16.0),
+            Color32::from_rgb(226, 232, 240),
+        );
+        let text_galley = ui.painter().layout_no_wrap(
+            label.to_string(),
+            egui::FontId::proportional(11.0),
+            Color32::from_rgb(203, 213, 225),
+        );
+
+        let center = rect.center();
+        ui.painter().galley(center - Vec2::new(icon_galley.size().x / 2.0, 16.0), icon_galley, Color32::from_rgb(226, 232, 240));
+        ui.painter().galley(center - Vec2::new(text_galley.size().x / 2.0, 2.0), text_galley, Color32::from_rgb(203, 213, 225));
+
+        response
     }
 }
 
-impl eframe::App for VelaStudioApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.apply_custom_theme(ctx);
+impl eframe::App for VelaPhantomStudio {
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        let mut visuals = egui::Visuals::dark();
+        visuals.window_fill = Color32::from_rgb(15, 23, 42);
+        visuals.panel_fill = Color32::from_rgb(30, 41, 59);
+        visuals.window_rounding = Rounding::same(0.0);
+        ctx.set_visuals(visuals);
 
-        // 1. TOP TITLE & NAVIGATION BAR (Metal Texture Look with Flame "i" Accent)
-        egui::TopBottomPanel::top("top_navigation_bar").show(ctx, |ui| {
-            ui.add_space(6.0);
+        TopBottomPanel::top("top_menu_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.heading("⚡ VELA PHANTOM STUDiO");
-                ui.label(egui::RichText::new("KNOCKSSTUDiOS").color(egui::Color32::from_rgb(255, 75, 43)).strong());
+                ui.add_space(8.0);
+                ui.label(RichText::new("⚡ VELA-PHANTOM-STUDiOS // ENTERPRISE SUITE").color(Color32::from_rgb(255, 138, 101)).strong());
                 ui.separator();
+                if ui.menu_button("File", |ui| {
+                    if ui.button("New Project").clicked() { ui.close_menu(); }
+                    if ui.button("Open Project...").clicked() { ui.close_menu(); }
+                    if ui.button("Save Sequence").clicked() { ui.close_menu(); }
+                    ui.separator();
+                    if ui.button("Exit Suite").clicked() { std::process::exit(0); }
+                }).response.clicked() {}
 
-                if ui.selectable_label(self.active_tab == StudioTab::Dashboard, "📊 Dashboard").clicked() {
-                    self.active_tab = StudioTab::Dashboard;
-                }
-                if ui.selectable_label(self.active_tab == StudioTab::TimelineEditor, "🎬 Timeline Suite").clicked() {
-                    self.active_tab = StudioTab::TimelineEditor;
-                }
-                if ui.selectable_label(self.active_tab == StudioTab::MediaPool, "📁 Media & Assets").clicked() {
-                    self.active_tab = StudioTab::MediaPool;
-                }
-                if ui.selectable_label(self.active_tab == StudioTab::AudioMixer, "🔊 Audio Matrix").clicked() {
-                    self.active_tab = StudioTab::AudioMixer;
-                }
-                if ui.selectable_label(self.active_tab == StudioTab::RenderPipeline, "⚙️ Render Engine").clicked() {
-                    self.active_tab = StudioTab::RenderPipeline;
-                }
+                if ui.menu_button("Edit", |ui| {
+                    if ui.button("Undo").clicked() { ui.close_menu(); }
+                    if ui.button("Redo").clicked() { ui.close_menu(); }
+                    ui.separator();
+                    if ui.button("Preferences").clicked() { ui.close_menu(); }
+                }).response.clicked() {}
+
+                if ui.menu_button("Sequence", |ui| {
+                    if ui.button("Add Multitrack").clicked() { ui.close_menu(); }
+                    if ui.button("Slip Edit").clicked() { ui.close_menu(); }
+                }).response.clicked() {}
+
+                if ui.menu_button("Effects", |ui| {
+                    if ui.button("Fresno Peach Grading LUT").clicked() { ui.close_menu(); }
+                    if ui.button("Black Candle Audio Master").clicked() { ui.close_menu(); }
+                }).response.clicked() {}
+
+                if ui.menu_button("Export", |ui| {
+                    if ui.button("Render 4K Master").clicked() { ui.close_menu(); }
+                    if ui.button("Publish to Printify Store").clicked() { ui.close_menu(); }
+                }).response.clicked() {}
+
+                if ui.menu_button("Help", |ui| {
+                    if ui.button("System Diagnostics").clicked() { ui.close_menu(); }
+                    if ui.button("About VELA-PHANTOM-STUDiOS").clicked() { ui.close_menu(); }
+                }).response.clicked() {}
+            });
+        });
+
+        TopBottomPanel::top("ribbon_toolbar").show(ctx, |ui| {
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                ui.add_space(8.0);
+                if Self::pro_ribbon_button(ui, "📂", "Import Media").clicked() {}
+                if Self::pro_ribbon_button(ui, "✂️", "Razor Cut").clicked() {}
+                if Self::pro_ribbon_button(ui, "🔗", "Sync Stems").clicked() {}
+                if Self::pro_ribbon_button(ui, "🎨", "Color Grade").clicked() {}
+                if Self::pro_ribbon_button(ui, "🔊", "Audio Rack").clicked() {}
+                if Self::pro_ribbon_button(ui, "🚀", "Render 4K").clicked() {}
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(egui::RichText::new("🔥 LiVE [i]").color(egui::Color32::from_rgb(255, 20, 147)).strong());
-                    ui.separator();
-                    ui.label("Architect: Junior Tamayo");
+                    ui.add_space(8.0);
+                    ui.add(egui::TextEdit::singleline(&mut self.search_query).hint_text("Search timeline assets..."));
                 });
             });
-            ui.add_space(6.0);
+            ui.add_space(4.0);
         });
 
-        // 2. BOTTOM STATUS FOOTER
-        egui::TopBottomPanel::bottom("status_footer").show(ctx, |ui| {
+        TopBottomPanel::bottom("multitrack_timeline").resizable(true).min_height(200.0).show(ctx, |ui| {
+            ui.add_space(6.0);
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("● SECURE LICENSE: KNOCKTURNALNC").color(egui::Color32::from_rgb(0, 229, 255)));
-                ui.separator();
-                ui.label(format!("Frame Position: {}", self.timeline_frame));
-                ui.separator();
-                ui.label("Pure Rust Engine | 10-bit Color Pipeline Active");
+                ui.heading(RichText::new("Multitrack Sequence Timeline").color(Color32::from_rgb(255, 138, 101)));
+                if ui.button("⏮").clicked() {}
+                if ui.button("▶ Play").clicked() {}
+                if ui.button("⏸ Pause").clicked() {}
+                if ui.button("⏹ Stop").clicked() {}
+                if ui.button("⏺ Rec").clicked() {}
+                ui.label(RichText::new("TC: 00:00:14:22 [DROP-FRAME]").color(Color32::from_rgb(226, 232, 240)));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(RichText::new(&self.render_status).color(Color32::from_rgb(72, 187, 120)));
+                });
+            });
+            ui.separator();
+            ui.vertical(|ui| {
+                for track in &mut self.timeline_tracks {
+                    ui.horizontal(|ui| {
+                        ui.colored_label(Color32::from_rgb(203, 213, 225), format!("TRK [{}]", track.id));
+                        if ui.button(if track.muted { "🔇 Muted" } else { "🔊 Active" }).clicked() {
+                            track.muted = !track.muted;
+                        }
+                        if ui.button(if track.locked { "🔒 Locked" } else { "🔓 Unlocked" }).clicked() {
+                            track.locked = !track.locked;
+                        }
+                        ui.add(egui::ProgressBar::new(0.85).text(&track.name).fill(track.color));
+                    });
+                    ui.add_space(3.0);
+                }
             });
         });
 
-        // 3. CENTRAL WORKSPACE MODULES
-        egui::CentralPanel::default().show(ctx, |ui| {
-            match self.active_tab {
-                StudioTab::Dashboard => {
-                    ui.heading("Prompt Sovereignty Matrix & Command Hub");
+        SidePanel::left("project_bin_panel").resizable(true).default_width(260.0).show(ctx, |ui| {
+            ui.add_space(8.0);
+            ui.heading(RichText::new("Project Bin").color(Color32::from_rgb(255, 138, 101)));
+            ui.separator();
+            ui.selectable_value(&mut self.active_section, StudioModule::VideoCompositing, "🎬 Video Compositing");
+            ui.selectable_value(&mut self.active_section, StudioModule::ColorGrading, "🎨 Fresno Peach Color Suite");
+            ui.selectable_value(&mut self.active_section, StudioModule::AudioMaster, "🎵 Audio Stems & Rack");
+            ui.selectable_value(&mut self.active_section, StudioModule::RecognitionEngine, "👁️ Recognition Core");
+            ui.selectable_value(&mut self.active_section, StudioModule::PromptOrchestrator, "⚡ Prompt Engine Daemon");
+            ui.selectable_value(&mut self.active_section, StudioModule::TimelineSequence, "⏳ Sequence Timelines");
+        });
+
+        SidePanel::right("program_monitor_panel").resizable(true).default_width(340.0).show(ctx, |ui| {
+            ui.add_space(8.0);
+            ui.heading(RichText::new("Program Monitor (4K)").color(Color32::from_rgb(255, 138, 101)));
+            ui.separator();
+            let (rect, _resp) = ui.allocate_exact_size(Vec2::new(320.0, 180.0), egui::Sense::hover());
+            ui.painter().rect_filled(rect, Rounding::same(4.0), Color32::from_rgb(10, 15, 25));
+            ui.painter().text(
+                rect.center(),
+                egui::Align2::CENTER_CENTER,
+                format!("[ ACTIVE FEED: {} ]", self.clip_name),
+                egui::FontId::proportional(12.0),
+                Color32::from_rgb(255, 138, 101),
+            );
+            ui.add_space(10.0);
+            ui.heading(RichText::new("True Peak Audio Meters").color(Color32::from_rgb(255, 138, 101)));
+            ui.add(egui::ProgressBar::new(0.91).text("L CH: -1.8 dB (Master)").fill(Color32::from_rgb(72, 187, 120)));
+            ui.add(egui::ProgressBar::new(0.89).text("R CH: -2.1 dB (Master)").fill(Color32::from_rgb(72, 187, 120)));
+        });
+
+        CentralPanel::default().show(ctx, |ui| {
+            ui.add_space(8.0);
+            match self.active_section {
+                StudioModule::VideoCompositing => {
+                    ui.heading(RichText::new("Video Compositing & Multicam Inspector").color(Color32::from_rgb(255, 138, 101)));
                     ui.separator();
-                    ui.add_space(10.0);
-
+                    ui.label("Manage high-bandwidth frame buffers and real-time GPU hardware acceleration.");
+                    ui.add_space(12.0);
                     ui.horizontal(|ui| {
-                        ui.label("Command Input:");
-                        let text_edit = ui.add(egui::TextEdit::singleline(&mut self.input_text).desired_width(500.0));
-                        if (ui.button("⚡ Execute Command").clicked() || (text_edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))) && !self.input_text.is_empty() {
-                            let cmd = self.input_text.clone();
-                            self.logs.push(format!("> {}", cmd));
-                            let reply = match cmd.to_lowercase().as_str() {
-                                "quote" => "“Shadows weave the silent code, where sovereignty outlives the storm.” — KNOCKSSTUDiOS".to_string(),
-                                "bio" => "Creator: Junior Tamayo (Gonzalo Guillen Tamayo) | Enterprise: KNOCKSSTUDiOS".to_string(),
-                                "billing" => "Seller's permit verified: KNOCKTURNALNC / KNOCKSSTUDiOS. Active license secure.".to_string(),
-                                other => format!("Processed sovereign directive [{}]: Pipeline synchronized.", other),
-                            };
-                            self.logs.push(reply);
-                            self.input_text.clear();
-                        }
+                        ui.label("Source Clip File:");
+                        ui.text_edit_singleline(&mut self.clip_name);
                     });
-
-                    ui.add_space(15.0);
-                    ui.label(egui::RichText::new("Execution Feed Logs:").strong());
-                    ui.add_space(5.0);
-
-                    egui::ScrollArea::vertical().max_height(380.0).show(ui, |ui| {
-                        for log in self.logs.iter().rev() {
-                            ui.group(|ui| {
-                                ui.set_min_width(ui.available_width());
-                                ui.label(log);
-                            });
-                            ui.add_space(4.0);
-                        }
+                    ui.horizontal(|ui| {
+                        ui.label("Timeline Playback Speed:");
+                        ui.add(egui::Slider::new(&mut self.playback_speed, 0.1..=8.0).text("x"));
                     });
                 }
-                StudioTab::TimelineEditor => {
-                    ui.heading("Professional Non-Linear Multi-Track Timeline");
+                StudioModule::ColorGrading => {
+                    ui.heading(RichText::new("Fresno Peach Color Grading & LUT Suite").color(Color32::from_rgb(255, 138, 101)));
                     ui.separator();
-                    ui.add_space(10.0);
-
+                    ui.label("Professional color science curves, cinematic warmth grading, and shadow lifters.");
+                    ui.add_space(12.0);
                     ui.horizontal(|ui| {
-                        if ui.button("⏮ First Frame").clicked() { self.timeline_frame = 0; }
-                        if ui.button(if self.timeline_playing { "⏸ Pause" } else { "▶ Play Stream" }).clicked() {
-                            self.timeline_playing = !self.timeline_playing;
-                        }
-                        if ui.button("⏭ Step Forward").clicked() { self.timeline_frame += 1; }
-                        ui.separator();
-                        ui.label(format!("Timecode: 00:00:0{}:12 (SMPTE)", self.timeline_frame / 30));
-                        ui.separator();
-                        ui.label(format!("Zoom: {:.1}x", self.zoom_level));
-                        if ui.button("Zoom In").clicked() { self.zoom_level += 0.25; }
-                        if ui.button("Zoom Out").clicked() && self.zoom_level > 0.5 { self.zoom_level -= 0.25; }
-                    });
-
-                    ui.add_space(15.0);
-                    ui.group(|ui| {
-                        ui.set_min_size(egui::vec2(ui.available_width(), 140.0));
-                        ui.heading("Track 1 [Video Sequence - Vella Ville 4K]");
-                        ui.add_space(8.0);
-                        ui.horizontal(|ui| {
-                            for i in 0..25 {
-                                let active = i == (self.timeline_frame as usize % 25);
-                                let color = if active { egui::Color32::from_rgb(255, 75, 43) } else { egui::Color32::from_rgb(50, 55, 70) };
-                                ui.colored_label(color, "████");
-                            }
-                        });
-                        ui.add_space(10.0);
-                        ui.heading("Track 2 [Biolumi Audio Matrix - 24-bit / 96kHz]");
-                        ui.add_space(8.0);
-                        ui.horizontal(|ui| {
-                            for i in 0..25 {
-                                let active = i == (self.timeline_frame as usize % 25);
-                                let color = if active { egui::Color32::from_rgb(255, 20, 147) } else { egui::Color32::from_rgb(40, 70, 80) };
-                                ui.colored_label(color, "~~~~");
-                            }
-                        });
+                        ui.label("Color Temperature (Kelvin):");
+                        ui.add(egui::Slider::new(&mut self.color_temp, 2000.0..=12000.0).text("K"));
                     });
                 }
-                StudioTab::MediaPool => {
-                    ui.heading("Media Pool & Asset Manager");
+                StudioModule::AudioMaster => {
+                    ui.heading(RichText::new("Black Candle Audio Mastering Rack").color(Color32::from_rgb(255, 138, 101)));
                     ui.separator();
-                    ui.add_space(10.0);
-
-                    ui.columns(2, |cols| {
-                        cols[0].vertical(|ui| {
-                            ui.heading("📁 Indexed Project Assets");
-                            ui.add_space(8.0);
-                            ui.group(|ui| {
-                                ui.label("📦 3D Volumetric Mesh (.obj / .fbx)");
-                                ui.label("Status: Indexed & Cached");
-                                if ui.button("Inspect 3D Geometry").clicked() {}
-                            });
-                            ui.group(|ui| {
-                                ui.label("🖼️ High-Res Vector Frame (.png / .svg)");
-                                ui.label("Status: Metal & Flame Texture Loaded");
-                                if ui.button("Preview Asset").clicked() {}
-                            });
-                        });
-                        cols[1].vertical(|ui| {
-                            ui.heading("🎞️ Stream Sequences");
-                            ui.add_space(8.0);
-                            ui.group(|ui| {
-                                ui.label("🎵 Dolby Atmos Master Audio (.wav)");
-                                ui.label("Status: 24-bit 96kHz Locked");
-                                if ui.button("Test Spatial Audio").clicked() {}
-                            });
-                            ui.group(|ui| {
-                                ui.label("🎬 4K Master Video Stream (.mp4)");
-                                ui.label("Status: Proxy Buffer Ready");
-                                if ui.button("Load Stream").clicked() {}
-                            });
-                        });
+                    ui.label("Multi-band compression, limiting, and lossless stem routing.");
+                    ui.add_space(12.0);
+                    ui.horizontal(|ui| {
+                        ui.label("Master Output Gain (dB):");
+                        ui.add(egui::Slider::new(&mut self.audio_gain, -36.0..=12.0).text("dB"));
                     });
                 }
-                StudioTab::AudioMixer => {
-                    ui.heading("DTS / Dolby Spatial Sound Matrix");
+                StudioModule::RecognitionEngine => {
+                    ui.heading(RichText::new("Recognition Core & Computer Vision Matrix").color(Color32::from_rgb(255, 138, 101)));
                     ui.separator();
-                    ui.add_space(10.0);
-
-                    ui.horizontal(|ui| {
-                        ui.label("Master Volume Control:");
-                        ui.add(egui::Slider::new(&mut self.audio_volume, 0.0..=1.0).text("Gain"));
-                    });
-                    ui.add_space(15.0);
-
-                    ui.columns(3, |cols| {
-                        cols[0].group(|ui| {
-                            ui.heading("Front L / R");
-                            ui.label("Ambisonic Decoder: Active");
-                            ui.label("EQ: 15-Band Parametric");
-                        });
-                        cols[1].group(|ui| {
-                            ui.heading("Center & LFE");
-                            ui.label("Sub-Bass Enhancer: Locked");
-                            ui.label("Limiter: -0.5 dB");
-                        });
-                        cols[2].group(|ui| {
-                            ui.heading("Atmos Height");
-                            ui.label("Spatial Reverb: Studio Hall");
-                            ui.label("Bitrate: 96 kHz / 24-bit");
-                        });
-                    });
+                    ui.label("Automated optical tracking, frame analysis, and asset indexing pipelines.");
                 }
-                StudioTab::RenderPipeline => {
-                    ui.heading("2D / 3D Volumetric Render Engine");
+                StudioModule::PromptOrchestrator => {
+                    ui.heading(RichText::new("Prompt Engine Daemon & Workflow Automation").color(Color32::from_rgb(255, 138, 101)));
                     ui.separator();
-                    ui.add_space(10.0);
-
+                    ui.label("Execute batch shell scripts, automated deployment pipelines, and Printify sync tools.");
+                }
+                StudioModule::TimelineSequence => {
+                    ui.heading(RichText::new("Sequence Timeline Render Manager").color(Color32::from_rgb(255, 138, 101)));
+                    ui.separator();
+                    ui.label("Configure enterprise export presets and background rendering queues.");
+                    ui.add_space(12.0);
                     ui.horizontal(|ui| {
-                        if ui.button("⚡ Export 4K HDR10 Frame").clicked() {
-                            self.logs.push("SUCCESS: 4K HDR10 Frame rendered successfully with metal finish.".to_string());
-                        }
-                        if ui.button("🔮 Compile 3D Mesh Sequence").clicked() {
-                            self.logs.push("SUCCESS: 3D Volumetric sequence compiled to output buffer.".to_string());
-                        }
-                        if ui.button("📦 Batch Export MLT Project").clicked() {
-                            self.logs.push("SUCCESS: MLT XML project package exported.".to_string());
-                        }
+                        ui.label("Export Format Preset:");
+                        ui.text_edit_singleline(&mut self.export_preset);
                     });
-
-                    ui.add_space(20.0);
-                    ui.group(|ui| {
-                        ui.set_min_size(egui::vec2(ui.available_width(), 150.0));
-                        ui.heading("Render Queue & Hardware Acceleration Status:");
-                        ui.add_space(8.0);
-                        ui.label("GPU Acceleration: OpenGL / Vulkan Multi-Core Parallel Processing Active");
-                        ui.label("Color Pipeline: Linear Color Processing (10-bit End-to-End)");
-                        ui.label("Encoder: FFmpeg Backend Ready");
-                    });
+                    ui.add_space(8.0);
+                    if ui.button("🚀 EXECUTE RENDER PIPELINE").clicked() {
+                        self.render_status = "ENCODING 4K MASTER...".into();
+                    }
                 }
             }
         });
@@ -301,10 +309,15 @@ impl eframe::App for VelaStudioApp {
 }
 
 fn main() -> Result<(), eframe::Error> {
-    let options = eframe::NativeOptions::default();
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1440.0, 900.0])
+            .with_title("VELA-PHANTOM-STUDiOS"),
+        ..Default::default()
+    };
     eframe::run_native(
-        "Vela Phantom Studio",
+        "VELA-PHANTOM-STUDiOS",
         options,
-        Box::new(|_cc| Ok(Box::<VelaStudioApp>::default())),
+        Box::new(|_cc| Ok(Box::<VelaPhantomStudio>::default())),
     )
 }
