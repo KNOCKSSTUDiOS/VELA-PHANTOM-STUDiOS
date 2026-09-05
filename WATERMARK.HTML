@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCEND-OS — Export Watermark Engine</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+@keyframes flicker-i{
+  0%,80%{color:#ff00b4;text-shadow:0 0 12px #ff00b4,0 0 24px #ff00b480}
+  81%,100%{color:#50003780;text-shadow:none}
+}
+@keyframes pulse-glow{
+  0%,100%{box-shadow:0 0 20px #00ffff20}
+  50%{box-shadow:0 0 40px #00ffff40}
+}
+@keyframes scan-line{
+  0%{transform:translateY(-100%)}
+  100%{transform:translateY(100vh)}
+}
+body{
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  background:#06060c;
+  color:#e8eaf0;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+body::after{
+  content:'';position:fixed;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,#00ffff40,transparent);
+  animation:scan-line 4s linear infinite;
+  pointer-events:none;z-index:9999;
+}
+.engine-header{
+  background:linear-gradient(180deg,#0a0a14 0%,#06060c 100%);
+  border-bottom:1px solid #ffffff10;
+  padding:16px 24px;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;
+}
+.engine-logo{font-size:20px;font-weight:700;letter-spacing:2px;color:#f0f8ff}
+.engine-logo .i-flicker{animation:flicker-i 2s infinite;display:inline}
+.engine-logo .glow{color:#00ffff;font-size:12px;opacity:0.6;margin-left:8px;letter-spacing:4px}
+.engine-badge{
+  background:#ff00b415;border:1px solid #ff00b440;
+  padding:4px 12px;border-radius:20px;font-size:11px;
+  color:#ff00b4;letter-spacing:1px;
+}
+.main-grid{
+  display:grid;
+  grid-template-columns:1fr 320px;
+  gap:0;min-height:calc(100vh - 60px);
+}
+@media(max-width:900px){
+  .main-grid{grid-template-columns:1fr;grid-template-rows:auto auto}
+}
+.preview-area{
+  background:#08080e;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:24px;position:relative;
+  border-right:1px solid #ffffff08;
+}
+.canvas-wrap{
+  position:relative;
+  max-width:100%;max-height:70vh;
+  animation:pulse-glow 3s ease-in-out infinite;
+  border-radius:8px;overflow:hidden;
+  background:#0c0c14;
+}
+canvas#preview{
+  display:block;max-width:100%;max-height:70vh;
+  background:#0c0c14;border-radius:8px;
+}
+.upload-zone{
+  width:100%;max-width:600px;
+  border:2px dashed #ffffff15;
+  border-radius:12px;padding:60px 24px;
+  text-align:center;cursor:pointer;
+  transition:all 0.3s;
+  background:#0a0a1208;
+}
+.upload-zone:hover{border-color:#00ffff40;background:#00ffff05}
+.upload-zone.active{border-color:#00ffff;background:#00ffff10}
+.upload-icon{font-size:48px;margin-bottom:16px;opacity:0.4}
+.upload-title{font-size:16px;color:#c0c4d0;margin-bottom:8px}
+.upload-sub{font-size:12px;color:#60647080}
+.controls-panel{
+  background:#0a0a12;
+  padding:20px;overflow-y:auto;
+  display:flex;flex-direction:column;gap:20px;
+}
+.panel-section{
+  background:#0e0e18;
+  border:1px solid #ffffff08;
+  border-radius:10px;padding:16px;
+}
+.panel-title{
+  font-size:11px;letter-spacing:2px;
+  color:#00ffff;margin-bottom:14px;
+  text-transform:uppercase;font-weight:600;
+  display:flex;align-items:center;gap:8px;
+}
+.panel-title::before{
+  content:'';width:3px;height:14px;
+  background:linear-gradient(180deg,#00ffff,#ff00b4);
+  border-radius:2px;
+}
+.tier-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tier-btn{
+  padding:12px 8px;border-radius:8px;
+  border:1px solid #ffffff10;background:#12121e;
+  color:#a0a4b0;cursor:pointer;
+  text-align:center;transition:all 0.2s;
+  font-size:12px;font-family:inherit;
+}
+.tier-btn:hover{border-color:#ffffff30}
+.tier-btn.active{
+  border-color:#00ffff;background:#00ffff10;color:#e8eaf0;
+  box-shadow:0 0 12px #00ffff15;
+}
+.tier-btn .tier-name{font-weight:700;font-size:13px;margin-bottom:2px}
+.tier-btn .tier-price{font-size:10px;opacity:0.6}
+.tier-btn .tier-wm{font-size:9px;color:#ff00b4;margin-top:4px}
+.tier-btn.active .tier-wm{color:#00ff88}
+.control-row{
+  display:flex;align-items:center;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+.control-label{font-size:12px;color:#8088a0}
+.control-value{font-size:12px;color:#c0c8e0;font-weight:600}
+input[type="range"]{
+  width:100%;height:4px;
+  -webkit-appearance:none;appearance:none;
+  background:#1a1a2e;border-radius:2px;
+  outline:none;margin-top:6px;
+}
+input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:16px;height:16px;border-radius:50%;
+  background:linear-gradient(135deg,#00ffff,#ff00b4);
+  cursor:pointer;border:2px solid #0a0a12;
+}
+select.engine-select{
+  width:100%;padding:8px 12px;
+  background:#12121e;border:1px solid #ffffff10;
+  border-radius:6px;color:#c0c8e0;
+  font-size:12px;font-family:inherit;
+  cursor:pointer;outline:none;
+}
+select.engine-select:focus{border-color:#00ffff40}
+.toggle-row{
+  display:flex;align-items:center;
+  justify-content:space-between;
+  padding:8px 0;
+}
+.toggle-label{font-size:12px;color:#8088a0}
+.toggle{
+  width:40px;height:22px;
+  background:#1a1a2e;border-radius:11px;
+  position:relative;cursor:pointer;
+  transition:background 0.2s;border:none;
+}
+.toggle.on{background:linear-gradient(135deg,#00ffff60,#ff00b460)}
+.toggle::after{
+  content:'';position:absolute;
+  width:16px;height:16px;border-radius:50%;
+  background:#e0e0e0;top:3px;left:3px;
+  transition:transform 0.2s;
+}
+.toggle.on::after{transform:translateX(18px);background:#fff}
+.export-section{margin-top:auto;padding-top:10px}
+.export-btn{
+  width:100%;padding:14px;
+  background:linear-gradient(135deg,#00ffff20,#ff00b420);
+  border:1px solid #00ffff40;
+  border-radius:10px;color:#e8eaf0;
+  font-size:14px;font-weight:700;
+  letter-spacing:1px;cursor:pointer;
+  font-family:inherit;transition:all 0.3s;
+}
+.export-btn:hover{
+  background:linear-gradient(135deg,#00ffff30,#ff00b430);
+  box-shadow:0 0 24px #00ffff20;
+  transform:translateY(-1px);
+}
+.export-btn:active{transform:translateY(0)}
+.export-btn:disabled{
+  opacity:0.3;cursor:not-allowed;
+  transform:none;box-shadow:none;
+}
+.status-bar{
+  padding:12px 24px;
+  background:#08080e;
+  border-top:1px solid #ffffff08;
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:11px;color:#505468;
+}
+.status-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:#00ff88;display:inline-block;
+  margin-right:6px;
+}
+.wm-locked-msg{
+  background:#ff00b410;border:1px solid #ff00b430;
+  border-radius:8px;padding:10px 14px;
+  font-size:11px;color:#ff80d0;
+  line-height:1.5;margin-top:8px;
+}
+.wm-unlocked-msg{
+  background:#00ff8810;border:1px solid #00ff8830;
+  border-radius:8px;padding:10px 14px;
+  font-size:11px;color:#80ffcc;
+  line-height:1.5;margin-top:8px;
+}
+.preview-label{
+  position:absolute;top:12px;left:12px;
+  background:#00000080;padding:4px 10px;
+  border-radius:4px;font-size:10px;
+  color:#00ffff;letter-spacing:1px;z-index:5;
+}
+.dim-info{font-size:10px;color:#505468;margin-top:8px;text-align:center}
+.tier-features{
+  font-size:10px;color:#606880;
+  line-height:1.6;margin-top:10px;
+  padding:10px;background:#0a0a14;
+  border-radius:6px;
+}
+.tier-features b{color:#a0a8c0}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<header class="engine-header">
+  <div>
+    <div class="engine-logo">
+      KNOCKSSTUD<span class="i-flicker">i</span>OS
+      <span class="glow">ASCEND-OS</span>
+    </div>
+  </div>
+  <div class="engine-badge">EXPORT ENGINE v1.0</div>
+</header>
+
+<div class="main-grid">
+
+  <div class="preview-area">
+    <div class="upload-zone" id="uploadZone">
+      <div class="upload-icon">⬆</div>
+      <div class="upload-title">Drop your creation here</div>
+      <div class="upload-sub">PNG, JPG, WEBP — any resolution</div>
+      <input type="file" id="fileInput" accept="image/*" style="display:none">
+    </div>
+    <div class="canvas-wrap hidden" id="canvasWrap">
+      <div class="preview-label">LIVE PREVIEW</div>
+      <canvas id="preview" width="800" height="450"></canvas>
+    </div>
+    <div class="dim-info" id="dimInfo"></div>
+  </div>
+
+  <div class="controls-panel">
+
+    <div class="panel-section">
+      <div class="panel-title">User Tier</div>
+      <div class="tier-grid">
+        <button class="tier-btn active" data-tier="free" onclick="setTier('free')">
+          <div class="tier-name">Free</div>
+          <div class="tier-price">$0</div>
+          <div class="tier-wm">Watermark ON</div>
+        </button>
+        <button class="tier-btn" data-tier="creator" onclick="setTier('creator')">
+          <div class="tier-name">Creator</div>
+          <div class="tier-price">$4.99/mo</div>
+          <div class="tier-wm">Small mark</div>
+        </button>
+        <button class="tier-btn" data-tier="pro" onclick="setTier('pro')">
+          <div class="tier-name">Pro</div>
+          <div class="tier-price">$9.99/mo</div>
+          <div class="tier-wm">Optional</div>
+        </button>
+        <button class="tier-btn" data-tier="enterprise" onclick="setTier('enterprise')">
+          <div class="tier-name">Enterprise</div>
+          <div class="tier-price">$24.99/mo</div>
+          <div class="tier-wm">No watermark</div>
+        </button>
+      </div>
+      <div id="tierMsg"></div>
+      <div class="tier-features" id="tierFeatures">
+        <b>Free Tier:</b> Full engine access. Exports include KNOCKSSTUDiOS watermark. Upgrade to remove or reduce.
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Watermark Controls</div>
+      <div class="toggle-row">
+        <span class="toggle-label">Show Watermark</span>
+        <button class="toggle on" id="toggleWM" onclick="toggleWatermark()"></button>
+      </div>
+      <div id="wmControls">
+        <div class="control-row">
+          <span class="control-label">Opacity</span>
+          <span class="control-value" id="opacityVal">85%</span>
+        </div>
+        <input type="range" id="opacitySlider" min="10" max="100" value="85" oninput="updateOpacity(this.value)">
+        <div class="control-row" style="margin-top:14px">
+          <span class="control-label">Size</span>
+          <span class="control-value" id="sizeVal">100%</span>
+        </div>
+        <input type="range" id="sizeSlider" min="30" max="150" value="100" oninput="updateSize(this.value)">
+        <div class="control-row" style="margin-top:14px">
+          <span class="control-label">Position</span>
+        </div>
+        <select class="engine-select" id="posSelect" onchange="updatePos()">
+          <option value="bottom-right" selected>Bottom Right</option>
+          <option value="bottom-left">Bottom Left</option>
+          <option value="bottom-center">Bottom Center</option>
+          <option value="top-right">Top Right</option>
+          <option value="top-left">Top Left</option>
+          <option value="center">Center (anti-theft)</option>
+        </select>
+        <div class="toggle-row" style="margin-top:12px">
+          <span class="toggle-label">Flickering "i" Effect</span>
+          <button class="toggle on" id="toggleFlicker" onclick="toggleFlickerSetting()"></button>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">ASCEND Ghost Mark</span>
+          <button class="toggle on" id="toggleAscend" onclick="toggleAscendSetting()"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">Export Settings</div>
+      <div class="control-row">
+        <span class="control-label">Format</span>
+      </div>
+      <select class="engine-select" id="formatSelect">
+        <option value="png">PNG (lossless)</option>
+        <option value="jpeg">JPEG (smaller file)</option>
+        <option value="webp">WebP (modern)</option>
+      </select>
+      <div class="control-row" style="margin-top:14px">
+        <span class="control-label">Quality</span>
+        <span class="control-value" id="qualityVal">95%</span>
+      </div>
+      <input type="range" id="qualitySlider" min="50" max="100" value="95" oninput="document.getElementById('qualityVal').textContent=this.value+'%'">
+    </div>
+
+    <div class="export-section">
+      <button class="export-btn" id="exportBtn" disabled onclick="exportImage()">
+        EXPORT CREATION
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<div class="status-bar">
+  <div><span class="status-dot"></span>ASCEND-OS Export Engine Active</div>
+  <div id="statusTier">TIER: FREE</div>
+</div>
+
+<script>
+const canvas = document.getElementById('preview');
+const ctx = canvas.getContext('2d');
+
+let state = {
+  tier: 'free',
+  showWM: true,
+  opacity: 0.85,
+  sizeMult: 1.0,
+  position: 'bottom-right',
+  flickerOn: true,
+  ascendOn: true,
+  image: null,
+  imgW: 0,
+  imgH: 0,
+};
+
+const TIERS = {
+  free: {
+    canDisableWM: false,
+    forceOpacityMin: 60,
+    forceSizeMin: 70,
+    ascendForced: true,
+    maxExportW: 1920,
+    label: 'FREE',
+    features: '<b>Free Tier:</b> Full engine access. Exports include KNOCKSSTUDiOS watermark. Upgrade to remove or reduce.',
+    msg: 'locked',
+    msgText: 'Watermark is required on Free tier. Upgrade to Creator ($4.99/mo) for a smaller mark, or Pro ($9.99/mo) to remove it completely.'
+  },
+  creator: {
+    canDisableWM: false,
+    forceOpacityMin: 30,
+    forceSizeMin: 40,
+    ascendForced: false,
+    maxExportW: 3840,
+    label: 'CREATOR',
+    features: '<b>Creator Tier:</b> Smaller watermark. 4K export. ASCEND mark optional. Flicker effect control.',
+    msg: 'locked',
+    msgText: 'Creator tier: watermark is smaller and adjustable, but still required. Go Pro ($9.99/mo) to remove it entirely.'
+  },
+  pro: {
+    canDisableWM: true,
+    forceOpacityMin: 0,
+    forceSizeMin: 0,
+    ascendForced: false,
+    maxExportW: 7680,
+    label: 'PRO',
+    features: '<b>Pro Tier:</b> Watermark fully optional. 8K export. Full controls unlocked. Commercial license included.',
+    msg: 'unlocked',
+    msgText: 'Pro tier: watermark is 100% optional. Keep it for brand pride or remove it — your call.'
+  },
+  enterprise: {
+    canDisableWM: true,
+    forceOpacityMin: 0,
+    forceSizeMin: 0,
+    ascendForced: false,
+    maxExportW: 15360,
+    label: 'ENTERPRISE',
+    features: '<b>Enterprise Tier:</b> No watermark. Custom branding slot. Unlimited resolution. API access. White-label ready.',
+    msg: 'unlocked',
+    msgText: 'Enterprise: clean exports, custom branding, white-label ready. Full platform power.'
+  }
+};
+
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+const canvasWrap = document.getElementById('canvasWrap');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('active'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('active'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('active');
+  if (e.dataTransfer.files.length) loadImage(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files.length) loadImage(e.target.files[0]);
+});
+
+function loadImage(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      state.image = img;
+      state.imgW = img.width;
+      state.imgH = img.height;
+      let dispW = Math.min(800, img.width);
+      let dispH = Math.round(img.height * (dispW / img.width));
+      canvas.width = dispW;
+      canvas.height = dispH;
+      uploadZone.classList.add('hidden');
+      canvasWrap.classList.remove('hidden');
+      document.getElementById('dimInfo').textContent = img.width + ' x ' + img.height + ' px';
+      document.getElementById('exportBtn').disabled = false;
+      render();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function setTier(tier) {
+  state.tier = tier;
+  document.querySelectorAll('.tier-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tier === tier);
+  });
+  const cfg = TIERS[tier];
+  document.getElementById('statusTier').textContent = 'TIER: ' + cfg.label;
+  document.getElementById('tierFeatures').innerHTML = cfg.features;
+
+  const toggleWM = document.getElementById('toggleWM');
+  if (!cfg.canDisableWM) {
+    state.showWM = true;
+    toggleWM.classList.add('on');
+    toggleWM.style.opacity = '0.4';
+    toggleWM.style.pointerEvents = 'none';
+  } else {
+    toggleWM.style.opacity = '1';
+    toggleWM.style.pointerEvents = 'auto';
+  }
+
+  const toggleA = document.getElementById('toggleAscend');
+  if (cfg.ascendForced) {
+    state.ascendOn = true;
+    toggleA.classList.add('on');
+    toggleA.style.opacity = '0.4';
+    toggleA.style.pointerEvents = 'none';
+  } else {
+    toggleA.style.opacity = '1';
+    toggleA.style.pointerEvents = 'auto';
+  }
+
+  const opSlider = document.getElementById('opacitySlider');
+  const szSlider = document.getElementById('sizeSlider');
+  if (cfg.forceOpacityMin > 0 && state.opacity * 100 < cfg.forceOpacityMin) {
+    state.opacity = cfg.forceOpacityMin / 100;
+    opSlider.value = cfg.forceOpacityMin;
+    document.getElementById('opacityVal').textContent = cfg.forceOpacityMin + '%';
+  }
+  opSlider.min = cfg.forceOpacityMin || 10;
+  if (cfg.forceSizeMin > 0 && state.sizeMult * 100 < cfg.forceSizeMin) {
+    state.sizeMult = cfg.forceSizeMin / 100;
+    szSlider.value = cfg.forceSizeMin;
+    document.getElementById('sizeVal').textContent = cfg.forceSizeMin + '%';
+  }
+  szSlider.min = cfg.forceSizeMin || 30;
+
+  const msgDiv = document.getElementById('tierMsg');
+  if (cfg.msg === 'locked') {
+    msgDiv.innerHTML = '<div class="wm-locked-msg">' + cfg.msgText + '</div>';
+  } else {
+    msgDiv.innerHTML = '<div class="wm-unlocked-msg">' + cfg.msgText + '</div>';
+  }
+  render();
+}
+
+function toggleWatermark() {
+  if (!TIERS[state.tier].canDisableWM) return;
+  state.showWM = !state.showWM;
+  document.getElementById('toggleWM').classList.toggle('on', state.showWM);
+  render();
+}
+
+function toggleFlickerSetting() {
+  state.flickerOn = !state.flickerOn;
+  document.getElementById('toggleFlicker').classList.toggle('on', state.flickerOn);
+  render();
+}
+
+function toggleAscendSetting() {
+  if (TIERS[state.tier].ascendForced) return;
+  state.ascendOn = !state.ascendOn;
+  document.getElementById('toggleAscend').classList.toggle('on', state.ascendOn);
+  render();
+}
+
+function updateOpacity(v) {
+  state.opacity = v / 100;
+  document.getElementById('opacityVal').textContent = v + '%';
+  render();
+}
+
+function updateSize(v) {
+  state.sizeMult = v / 100;
+  document.getElementById('sizeVal').textContent = v + '%';
+  render();
+}
+
+function updatePos() {
+  state.position = document.getElementById('posSelect').value;
+  render();
+}
+
+let animFrame = null;
+function render() {
+  if (animFrame) cancelAnimationFrame(animFrame);
+  function draw() {
+    if (!state.image) return;
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(state.image, 0, 0, w, h);
+
+    if (!state.showWM) {
+      animFrame = requestAnimationFrame(draw);
+      return;
+    }
+
+    const now = Date.now();
+    const cycle = now % 2000;
+    const iBright = !state.flickerOn || cycle < 1600;
+
+    const baseFontSize = Math.max(14, Math.round(w * 0.028 * state.sizeMult));
+    const margin = Math.round(w * 0.03);
+
+    ctx.save();
+    ctx.globalAlpha = state.opacity;
+
+    const part1 = 'KNOCKSSTUD';
+    const partI = 'i';
+    const part2 = 'OS';
+
+    ctx.font = '700 ' + baseFontSize + 'px "Segoe UI", system-ui, sans-serif';
+    const w1 = ctx.measureText(part1).width;
+    const wi = ctx.measureText(partI).width;
+    const w2 = ctx.measureText(part2).width;
+    const totalW = w1 + wi + w2;
+    const textH = baseFontSize;
+
+    let tx, ty;
+    switch (state.position) {
+      case 'bottom-right':
+        tx = w - margin - totalW; ty = h - margin; break;
+      case 'bottom-left':
+        tx = margin; ty = h - margin; break;
+      case 'bottom-center':
+        tx = (w - totalW) / 2; ty = h - margin; break;
+      case 'top-right':
+        tx = w - margin - totalW; ty = margin + textH; break;
+      case 'top-left':
+        tx = margin; ty = margin + textH; break;
+      case 'center':
+        tx = (w - totalW) / 2; ty = (h + textH) / 2; break;
+    }
+
+    ctx.shadowColor = '#00ffff';
+    ctx.shadowBlur = Math.max(4, baseFontSize * 0.3);
+    ctx.fillStyle = '#f0f8ff';
+    ctx.fillText(part1, tx, ty);
+
+    if (iBright) {
+      ctx.shadowColor = '#ff00b4';
+      ctx.shadowBlur = Math.max(8, baseFontSize * 0.5);
+      ctx.fillStyle = '#ff00b4';
+    } else {
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#50003780';
+    }
+    ctx.fillText(partI, tx + w1, ty);
+
+    ctx.shadowColor = '#00ffff';
+    ctx.shadowBlur = Math.max(4, baseFontSize * 0.3);
+    ctx.fillStyle = '#f0f8ff';
+    ctx.fillText(part2, tx + w1 + wi, ty);
+
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+
+    if (state.ascendOn) {
+      const ascendSize = Math.max(10, Math.round(baseFontSize * 0.5));
+      ctx.font = '400 ' + ascendSize + 'px "Segoe UI", system-ui, sans-serif';
+      ctx.globalAlpha = 0.14;
+      ctx.fillStyle = '#c8dcff';
+      let ax, ay;
+      if (state.position.includes('right') || state.position === 'center') {
+        ax = margin; ay = h - margin;
+      } else {
+        ax = w - margin - ctx.measureText('ASCEND').width; ay = h - margin;
+      }
+      ctx.fillText('ASCEND', ax, ay);
+    }
+
+    ctx.restore();
+    animFrame = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+function exportImage() {
+  if (!state.image) return;
+  const cfg = TIERS[state.tier];
+  let expW = Math.min(state.imgW, cfg.maxExportW);
+  let expH = Math.round(state.imgH * (expW / state.imgW));
+
+  const expCanvas = document.createElement('canvas');
+  expCanvas.width = expW;
+  expCanvas.height = expH;
+  const ectx = expCanvas.getContext('2d');
+
+  ectx.drawImage(state.image, 0, 0, expW, expH);
+
+  if (state.showWM) {
+    const baseFontSize = Math.max(18, Math.round(expW * 0.028 * state.sizeMult));
+    const margin = Math.round(expW * 0.03);
+
+    ectx.save();
+    ectx.globalAlpha = state.opacity;
+    ectx.font = '700 ' + baseFontSize + 'px "Segoe UI", system-ui, sans-serif';
+
+    const part1 = 'KNOCKSSTUD';
+    const partI = 'i';
+    const part2 = 'OS';
+    const w1 = ectx.measureText(part1).width;
+    const wi = ectx.measureText(partI).width;
+    const w2 = ectx.measureText(part2).width;
+    const totalW = w1 + wi + w2;
+    const textH = baseFontSize;
+
+    let tx, ty;
+    switch (state.position) {
+      case 'bottom-right':
+        tx = expW - margin - totalW; ty = expH - margin; break;
+      case 'bottom-left':
+        tx = margin; ty = expH - margin; break;
+      case 'bottom-center':
+        tx = (expW - totalW) / 2; ty = expH - margin; break;
+      case 'top-right':
+        tx = expW - margin - totalW; ty = margin + textH; break;
+      case 'top-left':
+        tx = margin; ty = margin + textH; break;
+      case 'center':
+        tx = (expW - totalW) / 2; ty = (expH + textH) / 2; break;
+    }
+
+    ectx.shadowColor = '#00ffff';
+    ectx.shadowBlur = Math.max(6, baseFontSize * 0.35);
+    ectx.fillStyle = '#f0f8ff';
+    ectx.fillText(part1, tx, ty);
+
+    ectx.shadowColor = '#ff00b4';
+    ectx.shadowBlur = Math.max(10, baseFontSize * 0.5);
+    ectx.fillStyle = '#ff00b4';
+    ectx.fillText(partI, tx + w1, ty);
+
+    ectx.shadowColor = '#00ffff';
+    ectx.shadowBlur = Math.max(6, baseFontSize * 0.35);
+    ectx.fillStyle = '#f0f8ff';
+    ectx.fillText(part2, tx + w1 + wi, ty);
+
+    ectx.shadowBlur = 0;
+    ectx.shadowColor = 'transparent';
+
+    if (state.ascendOn) {
+      const ascendSize = Math.max(12, Math.round(baseFontSize * 0.5));
+      ectx.font = '400 ' + ascendSize + 'px "Segoe UI", system-ui, sans-serif';
+      ectx.globalAlpha = 0.14;
+      ectx.fillStyle = '#c8dcff';
+      let ax, ay;
+      if (state.position.includes('right') || state.position === 'center') {
+        ax = margin; ay = expH - margin;
+      } else {
+        ax = expW - margin - ectx.measureText('ASCEND').width; ay = expH - margin;
+      }
+      ectx.fillText('ASCEND', ax, ay);
+    }
+    ectx.restore();
+  }
+
+  const fmt = document.getElementById('formatSelect').value;
+  const qual = document.getElementById('qualitySlider').value / 100;
+  let mimeType = 'image/png';
+  let ext = 'png';
+  if (fmt === 'jpeg') { mimeType = 'image/jpeg'; ext = 'jpg'; }
+  if (fmt === 'webp') { mimeType = 'image/webp'; ext = 'webp'; }
+
+  const dataURL = expCanvas.toDataURL(mimeType, qual);
+  const link = document.createElement('a');
+  link.download = 'knocksstudios_export.' + ext;
+  link.href = dataURL;
+  link.click();
+}
+
+setTier('free');
+</script>
+
+</body>
+</html>
